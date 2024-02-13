@@ -2,6 +2,32 @@
 
 See my blog post for more information: https://wesleydegroot.nl/blog/post/Admob-in-SwiftUI
 
+
+## Requirements
+
+- Swift 5.9+ (Xcode 15+)
+- iOS 15+
+
+## Installation
+
+Install using Swift Package Manager
+
+```
+dependencies: [
+    .package(url: "https://github.com/0xWDG/Admob-SwiftUI.git", .branch("main")),
+],
+targets: [
+    .target(name: "MyTarget", dependencies: [
+        .product(name: "Admob_SwiftUI", package: "Admob_SwiftUI"),
+    ]),
+]
+```
+
+And import it:
+```swift
+import Admob_SwiftUI
+```
+
 # Usage
 ```swift
 struct ContentView: View {
