@@ -12,7 +12,7 @@ See my blog post for more information: https://wesleydegroot.nl/blog/post/Admob-
 
 Install using Swift Package Manager
 
-```
+```swift
 dependencies: [
     .package(url: "https://github.com/0xWDG/Admob-SwiftUI.git", .branch("main")),
 ],
