@@ -8,6 +8,8 @@
 //  Usage & Example: https://wesleydegroot.nl/blog/post/Admob-in-SwiftUI
 
 import SwiftUI
+
+#if canImport(GoogleMobileAds)
 import GoogleMobileAds
 
 // Delegate methods for receiving width update messages.
@@ -44,3 +46,4 @@ class BannerViewController: UIViewController {
         }
     }
 }
+#endif
