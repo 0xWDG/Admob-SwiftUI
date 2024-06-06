@@ -19,19 +19,16 @@ jobs:
 
       - name: Build Documentation
         run: |
-          swift package --allow-writing-to-directory docs \
-          generate-documentation \
-          --target Admob-SwiftUI \
-          --disable-indexing \
-          --output-path docs \
-          --transform-for-static-hosting \
-          --hosting-base-path `basename ${{ github.repository }}`
+          xcodebuild docbuild -scheme Admob-SwiftUI \
+          -destination generic/platform=iOS \
+          OTHER_DOCC_FLAGS="--transform-for-static-hosting --hosting-base-path `basename ${{ github.repository }}` --output-path docs"
 
       - name: Init new repo in dist folder and commit generated files
         run: |
           cd docs
           git init -b docs
           DOCURL=`basename ${{ github.repository }}`
+          DOCURL=${DOCURL//-/_}
           echo "{\"meta\":{\"title\":\"$DOCURL Documentation\"}}" > theme-settings.json
           echo "<script>window.location.href = 'documentation/$DOCURL/'.toLowerCase();</script>" > index.html
           git add -A .
