@@ -18,4 +18,4 @@ jobs:
       - name: Build documentation
         uses: 0xWDG/build-documentation@main
         with:
-          iOS: 'true' # Build for iOS
+          iOS: true # Build for iOS
