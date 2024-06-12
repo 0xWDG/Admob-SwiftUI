@@ -1,41 +1,21 @@
+# .github/workflows/build-documentation.yml
+
 name: build-documentation
 
 on:
+  # Run on push to main branch
   push:
     branches:
-      - "main"
+      - main
+
+  # Dispatch if triggered using Github (website)
   workflow_dispatch:
 
 jobs:
-  build-docc:
+  Build-documentation:
     runs-on: macos-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Create folder for generated documentation
-        run: |
-          mkdir docs
-
-      - name: Build Documentation
-        run: |
-          xcodebuild docbuild -scheme Admob-SwiftUI \
-          -destination generic/platform=iOS \
-          OTHER_DOCC_FLAGS="--transform-for-static-hosting --hosting-base-path `basename ${{ github.repository }}` --output-path docs"
-
-      - name: Init new repo in dist folder and commit generated files
-        run: |
-          cd docs
-          git init -b docs
-          DOCURL=`basename ${{ github.repository }}`
-          DOCURL=${DOCURL//-/_}
-          echo "{\"meta\":{\"title\":\"$DOCURL Documentation\"}}" > theme-settings.json
-          echo "<script>window.location.href = 'documentation/$DOCURL/'.toLowerCase();</script>" > index.html
-          git add -A .
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git commit -m 'deploy'
-          git push \
-          "https://${{ github.repository_owner }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
-          HEAD:docs \
-          --force
+      - name: Build documentation
+        uses: 0xWDG/build-documentation@main
+        with:
+          iOS: true # Build for iOS
