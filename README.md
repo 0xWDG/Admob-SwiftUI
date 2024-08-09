@@ -1,5 +1,6 @@
 # Admob for SwiftUI
 
+This library helps you to easily integrate the Admob SDK in your SwiftUI app. It is a wrapper around the Google Mobile Ads SDK for iOS. It provides a SwiftUI view that you can use to display banner ads in your app above your tabbar.
 See my blog post for more information: https://wesleydegroot.nl/blog/post/Admob-in-SwiftUI
 
 
@@ -77,6 +78,4 @@ struct UpdateConsent: View {
 
 # Contact
 
-We can get in touch via [Twitter/X](https://twitter.com/0xWDG), [Discord](https://discordapp.com/users/918438083861573692), [Mastodon](https://iosdev.space/@0xWDG), [Threads](http://threads.net/@0xwdg), [Bluesky](https://bsky.app/profile/0xwdg.bsky.social).
-
-Alternatively you can visit my [Website](https://wesleydegroot.nl) or my [Blog](https://wdg.codes)
+We can get in touch via [Mastodon](https://mastodon.social/@0xWDG), [Twitter/X](https://twitter.com/0xWDG), [Discord](https://discordapp.com/users/918438083861573692),[Website](https://wesleydegroot.nl)
