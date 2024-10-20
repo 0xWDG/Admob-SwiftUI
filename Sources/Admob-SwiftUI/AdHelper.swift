@@ -12,10 +12,17 @@ import GoogleMobileAds
 import UserMessagingPlatform
 
 open class AdHelper: ObservableObject {
-    @Published public var haveConsent: Bool = false
-    @Published public var showingAd: Bool = true
-    @Published public var adUnitId: String = ""
-    @Published public var adWidth: CGFloat = .zero
+    @Published
+    public var haveConsent: Bool = false
+
+    @Published
+    public var showingAd: Bool = true
+
+    @Published
+    public var adUnitId: String = ""
+
+    @Published
+    public var adWidth: CGFloat = .zero
 
     public var updateConsent: (() -> Void) = { }
 

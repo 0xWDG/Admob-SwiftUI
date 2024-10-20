@@ -32,11 +32,8 @@ public struct AdView<Content: View>: View {
             if adHelper.haveConsent {
                 VStack {
                     Spacer()
-                    BannerView(adUnitID: adHelper.adUnitId)
-                        .background(.clear)
-                        .frame(width: 320, height: adHelper.adHeight)
+                    BannerView()
                         .padding(.bottom, adHelper.adHeight + 1)
-                        .opacity(adHelper.showingAd ? 1 : 0)
                         .environmentObject(adHelper)
                 }
             }

@@ -1,94 +1,66 @@
 //
-//  BannerView.swift
+//  BannerViewController.swift
 //  Admob-SwiftUI
 //
-//  Created by Wesley de Groot on 11/02/2024.
+//  Created by Wesley de Groot on 21/08/2024.
 //  https://wesleydegroot.nl
 //
 //  Usage & Example: https://wesleydegroot.nl/blog/post/Admob-in-SwiftUI
 
 import SwiftUI
 import GoogleMobileAds
+import AppTrackingTransparency
+import OSLog
 
-struct BannerView: UIViewControllerRepresentable {
+public struct BannerView: View {
     @EnvironmentObject
-    private var adHelper: AdHelper
+    var adHelper: AdHelper
 
-    @State
-    private var viewWidth: CGFloat = .zero
+    private let logger = Logger(
+        subsystem: "nl.wesleydegroot.Admob-SwiftUI",
+        category: "BannerView"
+    )
 
-    @State
-    var adUnitID: String
+    public init() { }
 
-    private let bannerView = GADBannerView()
+    public var body: some View {
+        ZStack {
+            AdConsentView()
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    ATTrackingManager.requestTrackingAuthorization(completionHandler: { status in
+                        logStatus(status: status)
+                    })
+                }
+                .environmentObject(adHelper)
 
-    func makeUIViewController(context: Context) -> some UIViewController {
-        let bannerViewController = BannerViewController()
-        bannerView.adUnitID = adUnitID
-        bannerView.rootViewController = bannerViewController
-        bannerView.delegate = context.coordinator
-
-        bannerViewController.view.backgroundColor = .clear
-        bannerViewController.view.addSubview(bannerView)
-        bannerViewController.delegate = context.coordinator
-
-        return bannerViewController
+            if adHelper.haveConsent {
+                InternalBannerView(adUnitID: adHelper.adUnitId)
+                    .frame(
+                        width: GADAdSizeBanner.size.width,
+                        height: GADAdSizeBanner.size.height
+                    )
+                    .opacity(adHelper.showingAd ? 1 : 0)
+                    .environmentObject(adHelper)
+            }
+        }
+        .frame(
+            width: adHelper.showingAd ? nil : 1,
+            height: adHelper.showingAd ? nil : 1
+        )
     }
 
-    func updateUIViewController(_ uiViewController: UIViewControllerType, context: Context) {
-        guard viewWidth != .zero else {
-            return
-        }
-
-        // Request a banner ad with the updated viewWidth.
-        bannerView.adSize = GADCurrentOrientationAnchoredAdaptiveBannerAdSizeWithWidth(viewWidth)
-        bannerView.load(GADRequest())
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    class Coordinator: NSObject, BannerViewControllerWidthDelegate, GADBannerViewDelegate {
-        let parent: BannerView
-
-        init(_ parent: BannerView) {
-            self.parent = parent
-        }
-
-        // MARK: - BannerViewControllerWidthDelegate methods
-
-        func bannerViewController(_ bannerViewController: BannerViewController, didUpdate width: CGFloat) {
-            // Pass the viewWidth from Coordinator to BannerView.
-            parent.viewWidth = width
-        }
-
-        // MARK: - GADBannerViewDelegate methods
-
-        func bannerViewDidReceiveAd(_ bannerView: GADBannerView) {
-            print("DID RECEIVE AD")
-            parent.adHelper.showingAd = true
-        }
-
-        func bannerView(_ bannerView: GADBannerView, didFailToReceiveAdWithError error: Error) {
-            print("DID NOT RECEIVE AD: \(error.localizedDescription)")
-            parent.adHelper.showingAd = false
-        }
-
-        func bannerViewDidRecordImpression(_ bannerView: GADBannerView) {
-            print("\(#function) called")
-        }
-
-        func bannerViewWillPresentScreen(_ bannerView: GADBannerView) {
-            print("\(#function) called")
-        }
-
-        func bannerViewWillDismissScreen(_ bannerView: GADBannerView) {
-            print("\(#function) called")
-        }
-
-        func bannerViewDidDismissScreen(_ bannerView: GADBannerView) {
-            print("\(#function) called")
+    func logStatus(status: ATTrackingManager.AuthorizationStatus) {
+        switch status {
+        case .notDetermined:
+            logger.debug("Status: Not determined")
+        case .authorized:
+            logger.debug("Status: Authorized")
+        case .denied:
+            logger.debug("Status: Denied")
+        case .restricted:
+            logger.debug("Status: Restricted")
+        @unknown default:
+            logger.debug("Status: Unknown")
         }
     }
 }

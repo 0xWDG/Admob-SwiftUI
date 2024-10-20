@@ -9,13 +9,21 @@
 
 import SwiftUI
 import GoogleMobileAds
+import OSLog
 
 struct AdConsentView: View {
     @EnvironmentObject
     private var adHelper: AdHelper
 
-    @State private var hasViewAppeared = false
+    @State
+    private var hasViewAppeared = false
+
     private let formViewControllerRepresentable = FormViewControllerRepresentable()
+
+    private let logger = Logger(
+        subsystem: "nl.wesleydegroot.Admob-SwiftUI",
+        category: "AdConsentView"
+    )
 
     var formViewControllerRepresentableView: some View {
         formViewControllerRepresentable
@@ -41,7 +49,7 @@ struct AdConsentView: View {
         ) { (formError) in
             guard let formError else { return }
 
-            print(formError.localizedDescription)
+            logger.fault("\(formError.localizedDescription)")
         }
     }
 
@@ -55,7 +63,7 @@ struct AdConsentView: View {
 
             if let consentError {
                 // Consent gathering failed.
-                print("Error: \(consentError.localizedDescription)")
+                logger.fault("Error: \(consentError.localizedDescription)")
             }
 
             GoogleMobileAdsConsentManager.shared.startGoogleMobileAdsSDK()

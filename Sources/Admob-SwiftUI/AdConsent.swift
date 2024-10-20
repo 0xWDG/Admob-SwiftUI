@@ -19,6 +19,7 @@ import UserMessagingPlatform
 @MainActor
 class GoogleMobileAdsConsentManager: NSObject {
     static let shared = GoogleMobileAdsConsentManager()
+    
     var isMobileAdsStartCalled = false
 
     var canRequestAds: Bool {
@@ -65,7 +66,9 @@ class GoogleMobileAdsConsentManager: NSObject {
         from viewController: UIViewController, completionHandler: @escaping (Error?) -> Void
     ) {
         UMPConsentForm.presentPrivacyOptionsForm(
-            from: viewController, completionHandler: completionHandler)
+            from: viewController,
+            completionHandler: completionHandler
+        )
     }
 
     /// Method to initialize the Google Mobile Ads SDK. The SDK should only be initialized once.
