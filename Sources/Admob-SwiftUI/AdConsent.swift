@@ -19,7 +19,7 @@ import UserMessagingPlatform
 @MainActor
 class GoogleMobileAdsConsentManager: NSObject {
     static let shared = GoogleMobileAdsConsentManager()
-    
+
     var isMobileAdsStartCalled = false
 
     var canRequestAds: Bool {
