@@ -11,14 +11,12 @@ import SwiftUI
 import GoogleMobileAds
 import OSLog
 
-struct AdConsentView: View {
+public struct AdConsentView: View {
     @EnvironmentObject
     private var adHelper: AdHelper
 
     @State
     private var hasViewAppeared = false
-
-    private let formViewControllerRepresentable = FormViewControllerRepresentable()
 
     private let logger = Logger(
         subsystem: "nl.wesleydegroot.Admob-SwiftUI",
@@ -26,11 +24,13 @@ struct AdConsentView: View {
     )
 
     var formViewControllerRepresentableView: some View {
-        formViewControllerRepresentable
+        adHelper.formViewControllerRepresentable
             .frame(width: .zero, height: .zero)
     }
 
-    var body: some View {
+    public init() { }
+
+    public var body: some View {
         VStack { }
         .background(formViewControllerRepresentableView)
         .onAppear {
@@ -45,22 +45,21 @@ struct AdConsentView: View {
 
     func updateConsent() {
         GoogleMobileAdsConsentManager.shared.presentPrivacyOptionsForm(
-            from: formViewControllerRepresentable.viewController
+            from: adHelper.formViewControllerRepresentable.viewController
         ) { (formError) in
             guard let formError else { return }
-
-            logger.fault("\(formError.localizedDescription)")
+            print(formError.localizedDescription)
         }
     }
 
     @MainActor
     func askConsent() {
-        adHelper.updateConsent = updateConsent
+//        adHelper.updateConsent = updateConsent
 
+        logger.debug("Ask for ad consent.")
         GoogleMobileAdsConsentManager.shared.gatherConsent(
-            from: formViewControllerRepresentable.viewController
+            from: adHelper.formViewControllerRepresentable.viewController
         ) { (consentError) in
-
             if let consentError {
                 // Consent gathering failed.
                 logger.fault("Error: \(consentError.localizedDescription)")
@@ -73,6 +72,7 @@ struct AdConsentView: View {
         GoogleMobileAdsConsentManager.shared.startGoogleMobileAdsSDK()
 
         adHelper.haveConsent = true
+        logger.debug("we have ad consent.")
     }
 }
 
@@ -84,7 +84,7 @@ struct AdConsentView: View {
 /// `FormViewControllerRepresentable` needs to be included as part of the view hierarchy because
 /// to present the UMP consent form, `canPresent(fromRootViewController:)` requires the
 /// presenting view controller’s window value to not be nil.
-private struct FormViewControllerRepresentable: UIViewControllerRepresentable {
+struct FormViewControllerRepresentable: UIViewControllerRepresentable {
     let viewController = UIViewController()
 
     func makeUIViewController(context: Context) -> some UIViewController {

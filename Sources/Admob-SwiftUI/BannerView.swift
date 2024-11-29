@@ -31,7 +31,6 @@ public struct BannerView: View {
                         logStatus(status: status)
                     })
                 }
-                .environmentObject(adHelper)
 
             if adHelper.haveConsent {
                 InternalBannerView(adUnitID: adHelper.adUnitId)
@@ -40,9 +39,9 @@ public struct BannerView: View {
                         height: GADAdSizeBanner.size.height
                     )
                     .opacity(adHelper.showingAd ? 1 : 0)
-                    .environmentObject(adHelper)
             }
         }
+        .environmentObject(adHelper)
         .frame(
             width: adHelper.showingAd ? nil : 1,
             height: adHelper.showingAd ? nil : 1
@@ -52,15 +51,15 @@ public struct BannerView: View {
     func logStatus(status: ATTrackingManager.AuthorizationStatus) {
         switch status {
         case .notDetermined:
-            logger.debug("Status: Not determined")
+            logger.debug("ATTrackingManager status: Not determined")
         case .authorized:
-            logger.debug("Status: Authorized")
+            logger.debug("ATTrackingManager status: Authorized")
         case .denied:
-            logger.debug("Status: Denied")
+            logger.debug("ATTrackingManager status: Denied")
         case .restricted:
-            logger.debug("Status: Restricted")
+            logger.debug("ATTrackingManager status: Restricted")
         @unknown default:
-            logger.debug("Status: Unknown")
+            logger.debug("ATTrackingManager status: Unknown")
         }
     }
 }

@@ -31,26 +31,49 @@ import Admob_SwiftUI
 
 # Usage
 ```swift
-struct ContentView: View {
+struct MyApp: App {
     @ObservedObject var adHelper = AdHelper(
         adUnitId: "YOUR-AD-UNIT-ID"
     )
 
-    AdView {
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .environmentObject(adHelper)
+        }
+    }
+}
+
+struct ContentView: View {
+    @EnvironmentObject
+    var adHelper: AdHelper
+
+    var body: some View {
+        AdView {
             TabView {
-                Text("First View")
-                    .tabItem {
-                        Image(systemName: "1.square.fill")
-                        Text("First")
-                    }
                 UpdateConsent()
                     .tabItem {
                         Image(systemName: "2.square.fill")
                         Text("Second")
                     }
+
+                SecondView()
+                    .tabItem {
+                        Image(systemName: "1.square.fill")
+                        Text("First")
+                    }
             }
+        }
     }
-    .environmentObject(adHelper)
+}
+
+struct SecondView: View {
+    @EnvironmentObject
+    var adHelper: AdHelper
+
+    var body: some View {
+        BannerView() // A banner view.
+    }
 }
 ```
 
