@@ -63,7 +63,7 @@ class GoogleMobileAdsConsentManager: NSObject {
 
     /// Helper method to call the UMP SDK method to present the privacy options form.
     func presentPrivacyOptionsForm(
-        from viewController: UIViewController, completionHandler: @escaping (Error?) -> Void
+        from viewController: UIViewController, completionHandler: @Sendable @escaping (Error?) -> Void
     ) {
         UMPConsentForm.presentPrivacyOptionsForm(
             from: viewController,

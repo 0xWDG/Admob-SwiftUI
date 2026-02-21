@@ -10,13 +10,17 @@
 import Foundation
 import SwiftUI
 
-public struct AdView<Content: View>: View {
+public struct AdView<Content: View, BackupView: View>: View {
     @EnvironmentObject
     var adHelper: AdHelper
 
     var content: () -> Content
+    var backupView: (() -> BackupView)?
 
-    public init(@ViewBuilder content: @escaping () -> Content) {
+    public init(
+        @ViewBuilder content: @escaping () -> Content,
+        backupView: (() -> BackupView)? = nil
+    ) {
         self.content = content
     }
 
@@ -32,7 +36,7 @@ public struct AdView<Content: View>: View {
             if adHelper.haveConsent {
                 VStack {
                     Spacer()
-                    BannerView()
+                    BannerView(backupView: backupView)
                         .padding(.bottom, adHelper.adHeight + 1)
                         .environmentObject(adHelper)
                 }

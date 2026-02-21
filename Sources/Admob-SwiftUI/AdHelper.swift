@@ -36,7 +36,15 @@ open class AdHelper: ObservableObject {
 
     /// Ad width
     @Published
-    public var adWidth: CGFloat = .zero
+    public var adWidth: CGFloat = GADAdSizeBanner.size.width
+
+    /// The ad height
+    @Published
+    public var adHeight: CGFloat = GADAdSizeBanner.size.height
+
+    /// Ad width
+    @Published
+    public var adSize: CGSize = GADAdSizeBanner.size
 
     /// Are we started already
     public static var isStarted = false
@@ -53,41 +61,33 @@ open class AdHelper: ObservableObject {
     ///   - adUnitId: The Ad unit identifier.
     public init(adUnitId: String) {
         if !AdHelper.isStarted {
-            self.adUnitId = adUnitId
+            self.adUnitId = adUnitId.isEmpty ? "ca-app-pub-3940256099942544/2934735716" : adUnitId
             AdHelper.isStarted = true
         } else {
             logger.fault("AdHelper is already started.\r\nThis can cause unexpected behaviour.")
         }
 
         Task { @MainActor in
-            self.updateConsent = {
-                GoogleMobileAdsConsentManager.shared.presentPrivacyOptionsForm(
-                    from: self.formViewControllerRepresentable.viewController
-                ) { (formError) in
-                    guard let formError else { return }
+            if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+                // Previews doesn't like this
+                self.haveConsent = true
+                self.updateConsent = { }
+            } else {
+                self.updateConsent = {
+                    GoogleMobileAdsConsentManager.shared.presentPrivacyOptionsForm(
+                        from: self.formViewControllerRepresentable.viewController
+                    ) { (formError) in
+                        guard let formError else { return }
 
-                    Logger(
-                        subsystem: "nl.wesleydegroot.Admob-SwiftUI",
-                        category: "AdHelper"
-                    )
-                    .fault("Error presentPrivacyOptionsForm: \(formError.localizedDescription)")
+                        Logger(
+                            subsystem: "nl.wesleydegroot.Admob-SwiftUI",
+                            category: "AdHelper"
+                        )
+                        .fault("Error presentPrivacyOptionsForm: \(formError.localizedDescription)")
+                    }
                 }
             }
         }
-    }
-
-    /// The ad height
-    public var adHeight: CGFloat {
-        if !haveConsent {
-            return 0
-        }
-
-        //        if UIDevice.current.userInterfaceIdiom == .pad {
-        //            UserDefaults.standard.setValue(90, forKey: "_as")
-        //            return 89
-        //        }
-
-        return 49
     }
 
     /// Reset consent

@@ -24,7 +24,8 @@ public struct AdConsentView: View {
     )
 
     var formViewControllerRepresentableView: some View {
-        adHelper.formViewControllerRepresentable
+        adHelper
+            .formViewControllerRepresentable
             .frame(width: .zero, height: .zero)
     }
 
@@ -54,7 +55,9 @@ public struct AdConsentView: View {
 
     @MainActor
     func askConsent() {
-//        adHelper.updateConsent = updateConsent
+        if adHelper.haveConsent {
+            return
+        }
 
         logger.debug("Ask for ad consent.")
         GoogleMobileAdsConsentManager.shared.gatherConsent(

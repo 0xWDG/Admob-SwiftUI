@@ -8,18 +8,23 @@
 //  Usage & Example: https://wesleydegroot.nl/blog/post/Admob-in-SwiftUI
 
 import SwiftUI
-
 import GoogleMobileAds
+import OSLog
 
 // Delegate methods for receiving width update messages.
 protocol BannerViewControllerWidthDelegate: AnyObject {
     func bannerViewController(_ bannerViewController: BannerViewController, didUpdate width: CGFloat)
 }
 
-class BannerViewController: UIViewController {
+public class BannerViewController: UIViewController {
     weak var delegate: BannerViewControllerWidthDelegate?
+    private let logger = Logger(
+        subsystem: "nl.wesleydegroot.Admob-SwiftUI",
+        category: "BannerViewController"
+    )
 
-    override func viewDidAppear(_ animated: Bool) {
+    override public func viewDidAppear(_ animated: Bool) {
+        logger.debug("viewDidAppear")
         super.viewDidAppear(animated)
 
         // Tell the delegate the initial ad width.
@@ -29,9 +34,10 @@ class BannerViewController: UIViewController {
         )
     }
 
-    override func viewWillTransition(
+    override public func viewWillTransition(
         to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator
     ) {
+        logger.debug("viewWillTransition")
         coordinator.animate { _ in
             // do nothing
         } completion: { _ in

@@ -12,33 +12,41 @@ import GoogleMobileAds
 import AppTrackingTransparency
 import OSLog
 
-public struct BannerView: View {
+public struct BannerView<BackupView: View>: View {
     @EnvironmentObject
     var adHelper: AdHelper
+
+    var backupView: (() -> BackupView)?
 
     private let logger = Logger(
         subsystem: "nl.wesleydegroot.Admob-SwiftUI",
         category: "BannerView"
     )
 
-    public init() { }
+    public init(backupView: (() -> BackupView)? = nil) {
+        self.backupView = backupView
+    }
 
     public var body: some View {
         ZStack {
-            AdConsentView()
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                    ATTrackingManager.requestTrackingAuthorization(completionHandler: { status in
-                        logStatus(status: status)
-                    })
-                }
+            if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] != "1" {
+                AdConsentView()
+                    .onReceive(
+                        NotificationCenter
+                            .default
+                            .publisher(
+                                for: UIApplication.didBecomeActiveNotification
+                            )
+                    ) { _ in
+                        ATTrackingManager.requestTrackingAuthorization(
+                            completionHandler: { logStatus(status: $0) }
+                        )
+                    }
+            }
 
             if adHelper.haveConsent {
-                InternalBannerView(adUnitID: adHelper.adUnitId)
-                    .frame(
-                        width: GADAdSizeBanner.size.width,
-                        height: GADAdSizeBanner.size.height
-                    )
-                    .opacity(adHelper.showingAd ? 1 : 0)
+                InternalBannerView(backupView: backupView)
+                    .frame(maxWidth: adHelper.adWidth, maxHeight: adHelper.adHeight)
             }
         }
         .environmentObject(adHelper)
@@ -61,5 +69,21 @@ public struct BannerView: View {
         @unknown default:
             logger.debug("ATTrackingManager status: Unknown")
         }
+    }
+}
+
+#Preview {
+    VStack {
+        Text("Top content")
+
+        BannerView {
+            Button {
+                print("Pressed the button")
+            } label: {
+                Text("Don't like ads?")
+            }
+        }
+
+        Text("Bottom content")
     }
 }

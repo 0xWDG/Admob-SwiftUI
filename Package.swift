@@ -11,20 +11,16 @@ import PackageDescription
 
 let package = Package(
     name: "Admob-SwiftUI",
-
     defaultLocalization: "en",
-
     platforms: [
         .iOS(.v15)
     ],
-
     products: [
         .library(
             name: "Admob-SwiftUI",
             targets: ["Admob-SwiftUI"]
         )
     ],
-
     dependencies: [
         .package(
             name: "GoogleMobileAds",
@@ -32,13 +28,12 @@ let package = Package(
             from: "11.1.0"
         )
     ],
-
     targets: [
         .target(
             name: "Admob-SwiftUI",
             dependencies: [
                 "GoogleMobileAds"
-                ],
+            ],
             exclude: [],
             resources: []
         )

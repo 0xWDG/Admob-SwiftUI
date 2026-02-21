@@ -14,16 +14,14 @@ extension View {
     /// - Parameter height: Height
     @ViewBuilder public func addAdPadding(height: CGFloat) -> some View {
         if #available(iOS 17.0, *) {
-            self.contentMargins(
-                .bottom,
-                height + 10,
-                for: .scrollContent
-            )
+            self
+                .contentMargins(
+                    .bottom,
+                    height + 10,
+                    for: .scrollContent
+                )
         } else {
-            self.padding(
-                .bottom,
-                height
-            )
+            self
         }
     }
 }
