@@ -9,67 +9,45 @@
 
 import SwiftUI
 import GoogleMobileAds
-import AppTrackingTransparency
-import OSLog
 
+/// Displays an adaptive Google Mobile Ads banner after consent is available.
+///
+/// The view gathers UMP consent through ``AdConsentView`` and creates the
+/// underlying banner only when ``AdHelper/hasConsent`` is `true`. It does not
+/// request App Tracking Transparency authorization; use
+/// ``AdTrackingAuthorization`` explicitly from the host app.
 public struct BannerView<BackupView: View>: View {
     @EnvironmentObject
-    var adHelper: AdHelper
+    private var adHelper: AdHelper
 
-    var backupView: (() -> BackupView)?
+    @ViewBuilder private let backupView: BackupView?
 
-    private let logger = Logger(
-        subsystem: "nl.wesleydegroot.Admob-SwiftUI",
-        category: "BannerView"
-    )
-
-    public init(backupView: (() -> BackupView)? = nil) {
-        self.backupView = backupView
+    /// Creates a banner view with optional fallback content.
+    ///
+    /// - Parameter backupView: Content displayed behind the Google banner while
+    ///   no ad has been rendered. The default produces no fallback content.
+    public init(@ViewBuilder backupView: () -> BackupView? = { nil }) {
+        self.backupView = backupView()
     }
 
+    /// The consent host and adaptive banner content.
     public var body: some View {
         ZStack {
             if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] != "1" {
                 AdConsentView()
-                    .onReceive(
-                        NotificationCenter
-                            .default
-                            .publisher(
-                                for: UIApplication.didBecomeActiveNotification
-                            )
-                    ) { _ in
-                        ATTrackingManager.requestTrackingAuthorization(
-                            completionHandler: { logStatus(status: $0) }
-                        )
-                    }
             }
 
-            if adHelper.haveConsent {
-                InternalBannerView(backupView: backupView)
-                    .frame(maxWidth: adHelper.adWidth, maxHeight: adHelper.adHeight)
+            if adHelper.hasConsent {
+                InternalBannerView {
+                    backupView
+                }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: adHelper.adHeight)
             }
         }
         .environmentObject(adHelper)
-        .frame(
-            width: adHelper.showingAd ? nil : 1,
-            height: adHelper.showingAd ? nil : 1
-        )
     }
 
-    func logStatus(status: ATTrackingManager.AuthorizationStatus) {
-        switch status {
-        case .notDetermined:
-            logger.debug("ATTrackingManager status: Not determined")
-        case .authorized:
-            logger.debug("ATTrackingManager status: Authorized")
-        case .denied:
-            logger.debug("ATTrackingManager status: Denied")
-        case .restricted:
-            logger.debug("ATTrackingManager status: Restricted")
-        @unknown default:
-            logger.debug("ATTrackingManager status: Unknown")
-        }
-    }
 }
 
 #Preview {

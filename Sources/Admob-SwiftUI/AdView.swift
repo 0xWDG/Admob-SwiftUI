@@ -10,37 +10,42 @@
 import Foundation
 import SwiftUI
 
+/// Wraps application content and reserves the bottom safe area for a banner ad.
+///
+/// Supply an ``AdHelper`` through the environment before creating this view.
+/// `AdView` places ``BannerView`` in a bottom safe-area inset so the banner does
+/// not overlap the wrapped content.
 public struct AdView<Content: View, BackupView: View>: View {
     @EnvironmentObject
-    var adHelper: AdHelper
+    private var adHelper: AdHelper
 
-    var content: () -> Content
-    var backupView: (() -> BackupView)?
+    @ViewBuilder private let content: Content
+    @ViewBuilder private let backupView: BackupView?
 
+    /// Creates an ad-aware content container.
+    ///
+    /// - Parameters:
+    ///   - content: The application content that should remain visible above the
+    ///     banner area.
+    ///   - backupView: Optional content displayed behind the banner while an ad
+    ///     is unavailable or loading.
     public init(
         @ViewBuilder content: @escaping () -> Content,
-        backupView: (() -> BackupView)? = nil
+        @ViewBuilder backupView: () -> BackupView? = { nil }
     ) {
-        self.content = content
+        self.content = content()
+        self.backupView = backupView()
     }
 
+    /// The wrapped content with a bottom banner safe-area inset.
     public var body: some View {
-        ZStack {
-            content()
-                .addAdPadding(height: adHelper.adHeight)
-                .environmentObject(adHelper)
-
-            AdConsentView()
-                .environmentObject(adHelper)
-
-            if adHelper.haveConsent {
-                VStack {
-                    Spacer()
-                    BannerView(backupView: backupView)
-                        .padding(.bottom, adHelper.adHeight + 1)
-                        .environmentObject(adHelper)
+        content
+            .environmentObject(adHelper)
+            .safeAreaInset(edge: .bottom, spacing: .zero) {
+                BannerView {
+                    backupView
                 }
+                .environmentObject(adHelper)
             }
-        }
     }
 }

@@ -32,8 +32,8 @@ import Admob_SwiftUI
 # Usage
 ```swift
 struct MyApp: App {
-    @ObservedObject var adHelper = AdHelper(
-        adUnitId: "YOUR-AD-UNIT-ID"
+    @StateObject var adHelper = AdHelper(
+        adUnitID: "YOUR-AD-UNIT-ID"
     )
 
     var body: some Scene {
@@ -77,6 +77,13 @@ struct SecondView: View {
 }
 ```
 
+Request App Tracking Transparency authorization explicitly from your app after
+showing any explanatory UI:
+
+```swift
+let status = await AdTrackingAuthorization.request()
+```
+
 **Reset/Update Consent**
 ```Swift
 struct UpdateConsent: View {
@@ -109,4 +116,3 @@ struct UpdateConsent: View {
 🤖 [Discord](https://discordapp.com/users/918438083861573692)
 
 Interested learning more about Swift? [Check out my blog](https://wesleydegroot.nl/blog/).
-

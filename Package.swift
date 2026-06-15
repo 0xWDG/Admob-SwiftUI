@@ -26,16 +26,28 @@ let package = Package(
             name: "GoogleMobileAds",
             url: "https://github.com/googleads/swift-package-manager-google-mobile-ads.git",
             from: "11.1.0"
+        ),
+        .package(
+            name: "GoogleUserMessagingPlatform",
+            url: "https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git",
+            from: "2.0.0"
         )
     ],
     targets: [
         .target(
             name: "Admob-SwiftUI",
             dependencies: [
-                "GoogleMobileAds"
+                .product(name: "GoogleMobileAds", package: "GoogleMobileAds"),
+                .product(name: "GoogleUserMessagingPlatform", package: "GoogleUserMessagingPlatform")
             ],
             exclude: [],
-            resources: []
+            resources: [
+                .process("PrivacyInfo.xcprivacy")
+            ]
+        ),
+        .testTarget(
+            name: "Admob-SwiftUITests",
+            dependencies: ["Admob-SwiftUI"]
         )
     ]
 )

@@ -20,22 +20,25 @@ import UserMessagingPlatform
 class GoogleMobileAdsConsentManager: NSObject {
     static let shared = GoogleMobileAdsConsentManager()
 
-    var isMobileAdsStartCalled = false
+    private var isMobileAdsStartCalled = false
+    private var completionQueue = ConsentCompletionQueue()
 
     var canRequestAds: Bool {
-        return UMPConsentInformation.sharedInstance.canRequestAds
+        UMPConsentInformation.sharedInstance.canRequestAds
     }
 
     var isPrivacyOptionsRequired: Bool {
-        return UMPConsentInformation.sharedInstance.privacyOptionsRequirementStatus == .required
+        UMPConsentInformation.sharedInstance.privacyOptionsRequirementStatus == .required
     }
 
     /// Helper method to call the UMP SDK methods to request consent information and load/present a
     /// consent form if necessary.
     func gatherConsent(
         from consentFormPresentationviewController: UIViewController,
-        consentGatheringComplete: @escaping (Error?) -> Void
+        consentGatheringComplete: @MainActor @Sendable @escaping (Error?) -> Void
     ) {
+        guard completionQueue.enqueue(consentGatheringComplete) else { return }
+
         let parameters = UMPRequestParameters()
 
         // For testing purposes, you can force a UMPDebugGeography of EEA or not EEA.
@@ -48,27 +51,38 @@ class GoogleMobileAdsConsentManager: NSObject {
             with: parameters
         ) { requestConsentError in
             guard requestConsentError == nil else {
-                return consentGatheringComplete(requestConsentError)
+                Task { @MainActor in
+                    self.finishGatheringConsent(with: requestConsentError)
+                }
+                return
             }
 
             UMPConsentForm.loadAndPresentIfRequired(
                 from: consentFormPresentationviewController
             ) { loadAndPresentError in
-
-                // Consent has been gathered.
-                consentGatheringComplete(loadAndPresentError)
+                Task { @MainActor in
+                    self.finishGatheringConsent(with: loadAndPresentError)
+                }
             }
         }
     }
 
+    private func finishGatheringConsent(with error: Error?) {
+        completionQueue.finish(with: error)
+    }
+
     /// Helper method to call the UMP SDK method to present the privacy options form.
     func presentPrivacyOptionsForm(
-        from viewController: UIViewController, completionHandler: @Sendable @escaping (Error?) -> Void
+        from viewController: UIViewController,
+        completionHandler: @MainActor @Sendable @escaping (Error?) -> Void
     ) {
         UMPConsentForm.presentPrivacyOptionsForm(
-            from: viewController,
-            completionHandler: completionHandler
-        )
+            from: viewController
+        ) { error in
+            Task { @MainActor in
+                completionHandler(error)
+            }
+        }
     }
 
     /// Method to initialize the Google Mobile Ads SDK. The SDK should only be initialized once.

@@ -11,52 +11,59 @@ import GoogleMobileAds
 import OSLog
 
 // MARK: - Interstitial Ad Manager
+/// Loads, presents, and reloads a Google Mobile Ads interstitial.
+///
+/// The manager begins loading during initialization, exposes readiness and
+/// loading state for SwiftUI, and automatically loads the next ad after a
+/// dismissal or presentation failure. Use ``observeEvents(_:)`` to receive
+/// lifecycle events without replacing other observers.
 @MainActor
-public class InterstitialAdManager: NSObject, GADFullScreenContentDelegate, ObservableObject {
-    @EnvironmentObject
-    private var adHelper: AdHelper
-
+public final class InterstitialAdManager: NSObject, GADFullScreenContentDelegate, ObservableObject {
     private var interstitial: GADInterstitialAd?
-    private let adUnitID: String?
+    private let adUnitID: String
+    private let eventStore = InterstitialAdEventStore()
 
+    /// Whether an interstitial is loaded and ready to present.
     @Published public var isAdReady = false
-    @Published public var isLoading = false
 
-    // Callbacks
-    public var onAdLoaded: (() -> Void)?
-    public var onAdFailedToLoad: ((Error) -> Void)?
-    public var onAdPresented: (() -> Void)?
-    public var onAdFailedToPresent: ((Error) -> Void)?
-    public var onAdDismissed: (() -> Void)?
+    /// Whether an interstitial load request is currently in progress.
+    @Published public var isLoading = false
 
     private let logger = Logger(
         subsystem: "nl.wesleydegroot.Admob-SwiftUI",
         category: "InterstitialAdManager"
     )
 
-    public init(adUnitID: String? = nil) {
+    /// Creates a manager and immediately starts loading an interstitial.
+    ///
+    /// - Parameter adUnitID: The Google Mobile Ads interstitial unit identifier.
+    public init(adUnitID: String) {
         self.adUnitID = adUnitID
         super.init()
         loadAd()
     }
 
-    // MARK: - Load Ad
+    /// Loads an interstitial when no other load request is in progress.
+    ///
+    /// Successful and failed requests emit ``InterstitialAdEvent`` values to all
+    /// registered observers. Calling this method while ``isLoading`` is `true`
+    /// has no effect.
     public func loadAd() {
         guard !isLoading else { return }
         isLoading = true
 
         GADInterstitialAd.load(
-            withAdUnitID: adUnitID ?? adHelper.adUnitId,
+            withAdUnitID: adUnitID,
             request: GADRequest()
         ) { [weak self] advertisement, error in
             Task { @MainActor in
-                guard let self = self else { return }
+                guard let self else { return }
 
                 self.isLoading = false
 
-                if let error = error {
+                if let error {
                     self.isAdReady = false
-                    self.onAdFailedToLoad?(error)
+                    self.eventStore.send(.failedToLoad(error))
                     self.logger.error("Failed to load interstitial ad: \(error.localizedDescription)")
                     return
                 }
@@ -65,41 +72,80 @@ public class InterstitialAdManager: NSObject, GADFullScreenContentDelegate, Obse
                 self.interstitial = advertisement
                 self.interstitial?.fullScreenContentDelegate = self
                 self.isAdReady = true
-                self.onAdLoaded?()
+                self.eventStore.send(.loaded)
             }
         }
     }
 
-    // MARK: - Show Ad
+    /// Registers an observer for interstitial ad lifecycle events.
+    ///
+    /// Observers are invoked on the main actor and coexist with other observers.
+    /// Remove the returned identifier using ``removeEventObserver(_:)`` when the
+    /// observer's lifetime ends to prevent retaining captured values.
+    ///
+    /// - Parameter observer: A closure invoked for every lifecycle event.
+    /// - Returns: An identifier used to remove this observer.
+    @discardableResult
+    public func observeEvents(
+        _ observer: @MainActor @escaping (InterstitialAdEvent) -> Void
+    ) -> UUID {
+        eventStore.addObserver(observer)
+    }
+
+    /// Removes a previously registered lifecycle event observer.
+    ///
+    /// Calling this method with an unknown or already removed identifier has no
+    /// effect.
+    ///
+    /// - Parameter identifier: The identifier returned by ``observeEvents(_:)``.
+    public func removeEventObserver(_ identifier: UUID) {
+        eventStore.removeObserver(identifier)
+    }
+
+    /// Presents the loaded interstitial from the application's visible controller.
+    ///
+    /// When no ad is ready, the method starts a load instead of presenting. When
+    /// no active key window can be found, presentation is skipped and the issue
+    /// is logged.
     public func showAd() {
-        guard let rootViewController = UIWindowScene.keyWindow?.rootViewController else {
+        guard var presentingViewController = UIWindowScene.keyWindow?.rootViewController else {
             self.logger.error("No root view controller found to present ads.")
             return
         }
+
+        while let presentedViewController = presentingViewController.presentedViewController {
+            presentingViewController = presentedViewController
+        }
+
         if isAdReady, let advertisement = interstitial {
-            advertisement.present(fromRootViewController: rootViewController)
+            advertisement.present(fromRootViewController: presentingViewController)
         } else {
             self.logger.debug("Ad not ready, reloading...")
             loadAd()
         }
     }
 
-    // MARK: - GADFullScreenContentDelegate
+    /// Handles the start of full-screen interstitial presentation.
+    ///
+    /// - Parameter ad: The Google full-screen ad being presented.
     nonisolated public func adWillPresentFullScreenContent(
         _ ad: GADFullScreenPresentingAd
         // swiftlint:disable:previous identifier_name
     ) {
         Task { @MainActor in
             self.isAdReady = false
-            self.onAdPresented?()
+            self.eventStore.send(.presented)
         }
     }
 
-    /// ad failed to present
-    /// 
+    /// Handles a failure to present full-screen interstitial content.
+    ///
+    /// The manager emits a failure event and immediately begins loading a
+    /// replacement interstitial.
+    ///
     /// - Parameters:
-    ///   - ad: The ad that failed to present.
-    ///   - error: The error that occurred.
+    ///   - ad: The Google full-screen ad that failed to present.
+    ///   - error: The presentation error reported by Google Mobile Ads.
     nonisolated public func ad(
         _ ad: GADFullScreenPresentingAd,
         // swiftlint:disable:previous identifier_name
@@ -107,45 +153,57 @@ public class InterstitialAdManager: NSObject, GADFullScreenContentDelegate, Obse
     ) {
         Task { @MainActor in
             self.isAdReady = false
-            self.onAdFailedToPresent?(error)
+            self.eventStore.send(.failedToPresent(error))
             self.loadAd()
         }
     }
 
+    /// Handles dismissal of full-screen interstitial content.
+    ///
+    /// The manager emits a dismissal event and immediately begins loading the
+    /// next interstitial.
+    ///
+    /// - Parameter ad: The Google full-screen ad that was dismissed.
     nonisolated public func adDidDismissFullScreenContent(
         _ ad: GADFullScreenPresentingAd
         // swiftlint:disable:previous identifier_name
     ) {
         Task { @MainActor in
             self.isAdReady = false
-            self.onAdDismissed?()
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second
+            self.eventStore.send(.dismissed)
             self.loadAd()
         }
     }
 }
 
 // MARK: - Environment Key
-public struct InterstitialAdManagerKey: EnvironmentKey {
-    public static let defaultValue: InterstitialAdManager? = nil
-}
-
 public extension EnvironmentValues {
-    /// Interstitial Ad Manager
-    var interstitialAdManager: InterstitialAdManager? {
-        get { self[InterstitialAdManagerKey.self] }
-        set { self[InterstitialAdManagerKey.self] = newValue }
-    }
+    /// The interstitial manager installed by ``View/interstitialAd(adUnitID:)``.
+    ///
+    /// Read this value from a descendant view to call
+    /// ``InterstitialAdManager/showAd()`` when an appropriate user action occurs.
+    @Entry var interstitialAdManager: InterstitialAdManager?
 }
 
 // MARK: - Interstitial Ad Modifier
+/// Creates and installs an interstitial manager in the SwiftUI environment.
 public struct InterstitialAdViewModifier: ViewModifier {
     @StateObject private var adController: InterstitialAdManager
 
+    /// Creates an interstitial environment modifier.
+    ///
+    /// The modifier owns a manager that starts loading immediately and remains
+    /// alive for the lifetime of the modified view identity.
+    ///
+    /// - Parameter adUnitID: The Google Mobile Ads interstitial unit identifier.
     public init(adUnitID: String) {
         _adController = StateObject(wrappedValue: InterstitialAdManager(adUnitID: adUnitID))
     }
 
+    /// Installs the owned manager into the modified content's environment.
+    ///
+    /// - Parameter content: The content receiving the interstitial manager.
+    /// - Returns: Content with an interstitial manager environment value.
     public func body(content: Content) -> some View {
         content
             .environment(\.interstitialAdManager, adController)
@@ -153,9 +211,14 @@ public struct InterstitialAdViewModifier: ViewModifier {
 }
 
 public extension View {
-    /// Attach an interstitial ad to the view.
-    /// 
-    /// - Parameter adUnitID: The Ad unit identifier.
+    /// Creates an interstitial manager and installs it in the view environment.
+    ///
+    /// Descendant views can read `EnvironmentValues.interstitialAdManager` to
+    /// present the loaded ad. The manager starts loading when the modifier is
+    /// created.
+    ///
+    /// - Parameter adUnitID: The Google Mobile Ads interstitial unit identifier.
+    /// - Returns: A view with an interstitial manager in its environment.
     func interstitialAd(adUnitID: String) -> some View {
         modifier(InterstitialAdViewModifier(adUnitID: adUnitID))
     }
@@ -163,7 +226,10 @@ public extension View {
 
 // MARK: - UIWindowScene Extension
 public extension UIWindowScene {
-    /// Get the key window of the application
+    /// The key window from the application's first foreground-active scene.
+    ///
+    /// - Returns: The active key window, or `nil` when no foreground-active
+    ///   scene currently owns one.
     static var keyWindow: UIWindow? {
         UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
@@ -173,101 +239,83 @@ public extension UIWindowScene {
     }
 }
 
-// MARK: - Callback Modifiers
-public struct InterstitialAdLoadedModifier: ViewModifier {
-    let action: () -> Void
+// MARK: - Callback Modifier
+private struct InterstitialAdEventModifier: ViewModifier {
+    let action: @MainActor (InterstitialAdEvent) -> Void
     @Environment(\.interstitialAdManager) var adController
+    @State private var observerID: UUID?
 
-    public func body(content: Content) -> some View {
+    func body(content: Content) -> some View {
         content
             .onAppear {
-                adController?.onAdLoaded = action
+                guard observerID == nil else { return }
+                observerID = adController?.observeEvents(action)
             }
-    }
-}
-
-public struct InterstitialAdFailedToLoadModifier: ViewModifier {
-    let action: (Error) -> Void
-    @Environment(\.interstitialAdManager) var adController
-
-    public func body(content: Content) -> some View {
-        content
-            .onAppear {
-                adController?.onAdFailedToLoad = action
-            }
-    }
-}
-
-public struct InterstitialAdPresentedModifier: ViewModifier {
-    let action: () -> Void
-    @Environment(\.interstitialAdManager) var adController
-
-    public func body(content: Content) -> some View {
-        content
-            .onAppear {
-                adController?.onAdPresented = action
-            }
-    }
-}
-
-public struct InterstitialAdFailedToPresentModifier: ViewModifier {
-    let action: (Error) -> Void
-    @Environment(\.interstitialAdManager) var adController
-
-    public func body(content: Content) -> some View {
-        content
-            .onAppear {
-                adController?.onAdFailedToPresent = action
-            }
-    }
-}
-
-public struct InterstitialAdDismissedModifier: ViewModifier {
-    let action: () -> Void
-    @Environment(\.interstitialAdManager) var adController
-
-    public func body(content: Content) -> some View {
-        content
-            .onAppear {
-                adController?.onAdDismissed = action
+            .onDisappear {
+                guard let observerID else { return }
+                adController?.removeEventObserver(observerID)
+                self.observerID = nil
             }
     }
 }
 
 // MARK: - Extensions for Callback Modifiers
 public extension View {
-    /// Callback when interstitial ad is loaded
-    /// 
-    /// - Parameter action: The action to perform when the ad is loaded.
+    /// Runs an action whenever the environment's interstitial finishes loading.
+    ///
+    /// The observer is registered when the view appears and removed when it
+    /// disappears, so multiple views can observe the same manager safely.
+    ///
+    /// - Parameter action: The action to perform when an ad becomes ready.
+    /// - Returns: A view that observes loaded events.
     func onInterstitialAdLoaded(_ action: @escaping () -> Void) -> some View {
-        modifier(InterstitialAdLoadedModifier(action: action))
+        modifier(InterstitialAdEventModifier { event in
+            guard case .loaded = event else { return }
+            action()
+        })
     }
 
-    /// Callback when interstitial ad fails to load
-    /// 
-    /// - Parameter action: The action to perform when the ad fails to load.
+    /// Runs an action whenever the environment's interstitial fails to load.
+    ///
+    /// - Parameter action: An action receiving the Google Mobile Ads load error.
+    /// - Returns: A view that observes load-failure events.
     func onInterstitialAdFailedToLoad(_ action: @escaping (Error) -> Void) -> some View {
-        modifier(InterstitialAdFailedToLoadModifier(action: action))
+        modifier(InterstitialAdEventModifier { event in
+            guard case let .failedToLoad(error) = event else { return }
+            action(error)
+        })
     }
 
-    /// Callback when interstitial ad is presented
-    /// 
-    /// - Parameter action: The action to perform when the ad is presented.
+    /// Runs an action when the environment's interstitial begins presentation.
+    ///
+    /// - Parameter action: The action to perform when presentation starts.
+    /// - Returns: A view that observes presentation events.
     func onInterstitialAdPresented(_ action: @escaping () -> Void) -> some View {
-        modifier(InterstitialAdPresentedModifier(action: action))
+        modifier(InterstitialAdEventModifier { event in
+            guard case .presented = event else { return }
+            action()
+        })
     }
 
-    /// Callback when interstitial ad fails to present
-    /// 
-    /// - Parameter action: The action to perform when the ad fails to present.
+    /// Runs an action when the environment's interstitial fails to present.
+    ///
+    /// - Parameter action: An action receiving the Google presentation error.
+    /// - Returns: A view that observes presentation-failure events.
     func onInterstitialAdFailedToPresent(_ action: @escaping (Error) -> Void) -> some View {
-        modifier(InterstitialAdFailedToPresentModifier(action: action))
+        modifier(InterstitialAdEventModifier { event in
+            guard case let .failedToPresent(error) = event else { return }
+            action(error)
+        })
     }
 
-    /// Callback when interstitial ad is dismissed
-    /// 
-    /// - Parameter action: The action to perform when the ad is dismissed.
+    /// Runs an action after the environment's interstitial is dismissed.
+    ///
+    /// - Parameter action: The action to perform after dismissal.
+    /// - Returns: A view that observes dismissal events.
     func onInterstitialAdDismissed(_ action: @escaping () -> Void) -> some View {
-        modifier(InterstitialAdDismissedModifier(action: action))
+        modifier(InterstitialAdEventModifier { event in
+            guard case .dismissed = event else { return }
+            action()
+        })
     }
 }

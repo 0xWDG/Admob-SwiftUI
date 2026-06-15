@@ -10,8 +10,15 @@
 import SwiftUI
 
 extension View {
-    /// Add ad padding
-    /// - Parameter height: Height
+    /// Adds bottom scroll-content space for an overlaid advertisement.
+    ///
+    /// On iOS 17 and later, this modifier adds the supplied banner height plus
+    /// ten points to the scroll content's bottom margin. Earlier iOS versions
+    /// return the view unchanged. Prefer ``AdView`` when possible because its
+    /// safe-area inset also works for non-scroll content.
+    ///
+    /// - Parameter height: The height of the advertisement to keep clear.
+    /// - Returns: A view with adjusted scroll-content margins when supported.
     @ViewBuilder public func addAdPadding(height: CGFloat) -> some View {
         if #available(iOS 17.0, *) {
             self

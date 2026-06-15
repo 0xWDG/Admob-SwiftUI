@@ -12,17 +12,27 @@ import GoogleMobileAds
 import OSLog
 
 // Delegate methods for receiving width update messages.
+@MainActor
 protocol BannerViewControllerWidthDelegate: AnyObject {
     func bannerViewController(_ bannerViewController: BannerViewController, didUpdate width: CGFloat)
 }
 
-public class BannerViewController: UIViewController {
+/// A UIKit container that reports the available banner width to its delegate.
+///
+/// This controller is primarily an implementation detail of
+/// ``InternalBannerView``. It remains public because it is the controller type
+/// required by that view's `UIViewControllerRepresentable` conformance.
+@MainActor
+public final class BannerViewController: UIViewController {
     weak var delegate: BannerViewControllerWidthDelegate?
     private let logger = Logger(
         subsystem: "nl.wesleydegroot.Admob-SwiftUI",
         category: "BannerViewController"
     )
 
+    /// Reports the initial safe-area-adjusted width after the controller appears.
+    ///
+    /// - Parameter animated: Whether the appearance transition was animated.
     override public func viewDidAppear(_ animated: Bool) {
         logger.debug("viewDidAppear")
         super.viewDidAppear(animated)
@@ -34,10 +44,16 @@ public class BannerViewController: UIViewController {
         )
     }
 
+    /// Reports the updated safe-area-adjusted width after a size transition.
+    ///
+    /// - Parameters:
+    ///   - size: The size the controller's view is transitioning to.
+    ///   - coordinator: The transition coordinator supplied by UIKit.
     override public func viewWillTransition(
         to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator
     ) {
         logger.debug("viewWillTransition")
+        super.viewWillTransition(to: size, with: coordinator)
         coordinator.animate { _ in
             // do nothing
         } completion: { _ in

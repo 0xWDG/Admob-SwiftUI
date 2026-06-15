@@ -11,6 +11,12 @@ import SwiftUI
 import GoogleMobileAds
 import OSLog
 
+/// An invisible SwiftUI view that gathers Google User Messaging Platform consent.
+///
+/// Add this view to a hierarchy that receives an ``AdHelper`` environment
+/// object. The view presents a consent form when required, starts Google Mobile
+/// Ads when ads may be requested, and updates ``AdHelper/hasConsent`` when the
+/// consent flow finishes.
 public struct AdConsentView: View {
     @EnvironmentObject
     private var adHelper: AdHelper
@@ -23,59 +29,55 @@ public struct AdConsentView: View {
         category: "AdConsentView"
     )
 
-    var formViewControllerRepresentableView: some View {
-        adHelper
-            .formViewControllerRepresentable
-            .frame(width: .zero, height: .zero)
-    }
-
+    /// Creates a consent view.
+    ///
+    /// The view has no visible content. It must remain in the view hierarchy so
+    /// its presentation controller has an attached window when UMP presents a
+    /// consent form.
     public init() { }
 
+    /// The invisible presentation host used by the UMP consent flow.
     public var body: some View {
-        VStack { }
-        .background(formViewControllerRepresentableView)
-        .onAppear {
-            guard !hasViewAppeared else { return }
-            hasViewAppeared = true
+        adHelper.formViewControllerRepresentable
+            .frame(width: .zero, height: .zero)
+            .task {
+                guard !hasViewAppeared else { return }
+                hasViewAppeared = true
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                self.askConsent()
+                await Task.yield()
+                guard !Task.isCancelled else { return }
+                askConsent()
             }
-        }
     }
 
     func updateConsent() {
         GoogleMobileAdsConsentManager.shared.presentPrivacyOptionsForm(
             from: adHelper.formViewControllerRepresentable.viewController
-        ) { (formError) in
+        ) { formError in
             guard let formError else { return }
-            print(formError.localizedDescription)
+            logger.error("Unable to present privacy options: \(formError.localizedDescription)")
         }
     }
 
     @MainActor
     func askConsent() {
-        if adHelper.haveConsent {
-            return
-        }
+        guard !adHelper.hasConsent else { return }
 
         logger.debug("Ask for ad consent.")
         GoogleMobileAdsConsentManager.shared.gatherConsent(
             from: adHelper.formViewControllerRepresentable.viewController
-        ) { (consentError) in
+        ) { consentError in
             if let consentError {
-                // Consent gathering failed.
                 logger.fault("Error: \(consentError.localizedDescription)")
             }
 
             GoogleMobileAdsConsentManager.shared.startGoogleMobileAdsSDK()
+            adHelper.hasConsent = GoogleMobileAdsConsentManager.shared.canRequestAds
+            logger.debug("Ad consent flow finished. Can request ads: \(adHelper.hasConsent)")
         }
 
         // This sample attempts to load ads using consent obtained in the previous session.
         GoogleMobileAdsConsentManager.shared.startGoogleMobileAdsSDK()
-
-        adHelper.haveConsent = true
-        logger.debug("we have ad consent.")
     }
 }
 
@@ -91,7 +93,7 @@ struct FormViewControllerRepresentable: UIViewControllerRepresentable {
     let viewController = UIViewController()
 
     func makeUIViewController(context: Context) -> some UIViewController {
-        return viewController
+        viewController
     }
 
     func updateUIViewController(_ uiViewController: UIViewControllerType, context: Context) {}

@@ -11,8 +11,14 @@ import SwiftUI
 import GoogleMobileAds
 import UserMessagingPlatform
 import OSLog
+import Combine
 
-/// Ad helper
+/// Stores shared banner configuration, consent state, and presentation state.
+///
+/// Create one helper for an ad placement and inject it into the SwiftUI
+/// environment. Banner views observe this object for consent and layout changes.
+/// Reassigning a banner value to its existing value does not invalidate SwiftUI.
+@MainActor
 open class AdHelper: ObservableObject {
     /// Logger
     private let logger = Logger(
@@ -20,82 +26,131 @@ open class AdHelper: ObservableObject {
         category: "AdHelper"
     )
 
-    public var identifier: UUID = .init()
-
-    /// Do we have consent to show ads
+    /// Whether Google User Messaging Platform currently allows ads to be requested.
+    ///
+    /// ``AdConsentView`` updates this value when its consent flow finishes.
     @Published
-    public var haveConsent: Bool = false
+    public var hasConsent = false
 
-    /// Are we showing an ad?
-    @Published
-    public var showingAd: Bool = true
+    private var bannerPresentationState = BannerPresentationState()
+    private var storedAdUnitID: String
 
-    /// Ad unit id
-    @Published
-    public var adUnitId: String = ""
+    /// Whether a banner ad is currently loaded and being displayed.
+    ///
+    /// Assignments are equality-checked to avoid unnecessary SwiftUI updates.
+    public var showingAd: Bool {
+        get { bannerPresentationState.isShowingAd }
+        set { updateBannerPresentation(isShowingAd: newValue) }
+    }
 
-    /// Ad width
-    @Published
-    public var adWidth: CGFloat = GADAdSizeBanner.size.width
+    /// The Google Mobile Ads unit identifier used by banner views.
+    ///
+    /// Assigning the same identifier does not invalidate observing views.
+    public var adUnitID: String {
+        get { storedAdUnitID }
+        set {
+            guard newValue != storedAdUnitID else { return }
+            objectWillChange.send()
+            storedAdUnitID = newValue
+        }
+    }
 
-    /// The ad height
-    @Published
-    public var adHeight: CGFloat = GADAdSizeBanner.size.height
+    /// The width of the most recently loaded banner, in points.
+    ///
+    /// Assignments update ``adSize`` and notify observers only when the resulting
+    /// size differs from the current banner size.
+    public var adWidth: CGFloat {
+        get { bannerPresentationState.size.width }
+        set {
+            updateBannerPresentation(
+                isShowingAd: showingAd,
+                size: CGSize(width: newValue, height: adHeight)
+            )
+        }
+    }
 
-    /// Ad width
-    @Published
-    public var adSize: CGSize = GADAdSizeBanner.size
+    /// The height of the most recently loaded banner, in points.
+    ///
+    /// Banner containers use this value to reserve the correct amount of space.
+    public var adHeight: CGFloat {
+        get { bannerPresentationState.size.height }
+        set {
+            updateBannerPresentation(
+                isShowingAd: showingAd,
+                size: CGSize(width: adWidth, height: newValue)
+            )
+        }
+    }
 
-    /// Are we started already
-    public static var isStarted = false
+    /// The size of the most recently loaded banner, in points.
+    ///
+    /// Assigning the existing size does not invalidate observing views.
+    public var adSize: CGSize {
+        get { bannerPresentationState.size }
+        set { updateBannerPresentation(isShowingAd: showingAd, size: newValue) }
+    }
 
     let formViewControllerRepresentable = FormViewControllerRepresentable()
 
-    /// Update consent
+    /// Presents the Google User Messaging Platform privacy options form.
+    ///
+    /// This closure is configured by the helper outside SwiftUI previews. Call
+    /// it from a user-initiated action when privacy options should be revisited.
     @MainActor
     public var updateConsent: (() -> Void) = {}
 
-    /// Initialize with ad unit id.
+    /// Creates shared ad state for a banner ad unit.
     ///
-    /// - Parameters:
-    ///   - adUnitId: The Ad unit identifier.
-    public init(adUnitId: String) {
-        if !AdHelper.isStarted {
-            self.adUnitId = adUnitId.isEmpty ? "ca-app-pub-3940256099942544/2934735716" : adUnitId
-            AdHelper.isStarted = true
+    /// An empty identifier uses Google's test banner identifier. The helper does
+    /// not request consent or load an ad until it is consumed by an ad view.
+    ///
+    /// - Parameter adUnitID: The Google Mobile Ads unit identifier.
+    public init(adUnitID: String) {
+        storedAdUnitID = adUnitID.isEmpty ? "ca-app-pub-3940256099942544/2934735716" : adUnitID
+
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            hasConsent = true
         } else {
-            logger.fault("AdHelper is already started.\r\nThis can cause unexpected behaviour.")
-        }
+            updateConsent = { [weak self] in
+                guard let self else { return }
 
-        Task { @MainActor in
-            if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
-                // Previews doesn't like this
-                self.haveConsent = true
-                self.updateConsent = { }
-            } else {
-                self.updateConsent = {
-                    GoogleMobileAdsConsentManager.shared.presentPrivacyOptionsForm(
-                        from: self.formViewControllerRepresentable.viewController
-                    ) { (formError) in
-                        guard let formError else { return }
-
-                        Logger(
-                            subsystem: "nl.wesleydegroot.Admob-SwiftUI",
-                            category: "AdHelper"
-                        )
-                        .fault("Error presentPrivacyOptionsForm: \(formError.localizedDescription)")
-                    }
+                GoogleMobileAdsConsentManager.shared.presentPrivacyOptionsForm(
+                    from: self.formViewControllerRepresentable.viewController
+                ) { formError in
+                    guard let formError else { return }
+                    self.logger.fault("Error presentPrivacyOptionsForm: \(formError.localizedDescription)")
                 }
             }
         }
     }
 
-    /// Reset consent
+    /// Resets locally cached UMP consent information.
+    ///
+    /// After resetting, ``hasConsent`` becomes `false`. A subsequent
+    /// ``AdConsentView`` appearance starts a new consent information request.
     public func resetConsent() {
         UMPConsentInformation.sharedInstance.reset()
+        hasConsent = false
     }
 
-    /// (not in use) Debug feature.
+    func updateBannerPresentation(isShowingAd: Bool, size: CGSize? = nil) {
+        var updatedState = bannerPresentationState
+        updatedState.isShowingAd = isShowingAd
+
+        if let size {
+            updatedState.size = size
+        }
+
+        guard updatedState != bannerPresentationState else { return }
+        objectWillChange.send()
+        bannerPresentationState = updatedState
+    }
+
+    /// Configures Google's sample test-device identifier.
+    ///
+    /// This helper is intended only for development. Production applications
+    /// should configure their own test device identifiers explicitly and should
+    /// not call this method for release builds.
     public func debug() {
         GADMobileAds
             .sharedInstance()
@@ -104,5 +159,33 @@ open class AdHelper: ObservableObject {
                 // Find a way to enable all devices.
                 "2077ef9a63d2b398840261c8221a0c9b"
             ]
+    }
+}
+
+public extension AdHelper {
+    /// A deprecated compatibility alias for ``hasConsent``.
+    ///
+    /// New code should read and write ``hasConsent`` directly.
+    @available(*, deprecated, renamed: "hasConsent")
+    var haveConsent: Bool {
+        get { hasConsent }
+        set { hasConsent = newValue }
+    }
+
+    /// A deprecated compatibility alias for ``adUnitID``.
+    ///
+    /// New code should use the correctly capitalized ``adUnitID`` property.
+    @available(*, deprecated, renamed: "adUnitID")
+    var adUnitId: String {
+        get { adUnitID }
+        set { adUnitID = newValue }
+    }
+
+    /// Creates an ad helper using the deprecated `adUnitId` argument label.
+    ///
+    /// - Parameter adUnitId: The Google Mobile Ads unit identifier.
+    @available(*, deprecated, renamed: "init(adUnitID:)")
+    convenience init(adUnitId: String) {
+        self.init(adUnitID: adUnitId)
     }
 }
