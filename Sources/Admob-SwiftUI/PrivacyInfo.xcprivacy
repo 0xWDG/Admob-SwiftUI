@@ -7,7 +7,7 @@
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryDiskSpace</string>
-            			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
 				<string>E174.1</string>
 			</array>
@@ -15,7 +15,7 @@
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
-            <key>NSPrivacyAccessedAPITypeReasons</key>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
 				<string>CA92.1</string>
 			</array>
@@ -50,5 +50,7 @@
 	</array>
 	<key>NSPrivacyTracking</key>
 	<true/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
 </dict>
 </plist>
