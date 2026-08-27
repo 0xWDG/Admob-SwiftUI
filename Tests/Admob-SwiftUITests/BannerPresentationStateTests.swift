@@ -3,9 +3,9 @@
 //  Admob-SwiftUITests
 //
 
+@testable import Admob_SwiftUI
 import Combine
 import XCTest
-@testable import Admob_SwiftUI
 
 @MainActor
 final class BannerPresentationStateTests: XCTestCase {

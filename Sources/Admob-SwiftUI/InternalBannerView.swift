@@ -5,8 +5,8 @@
 //  Created by Wesley de Groot on 24/10/2025.
 //
 
-import SwiftUI
 import GoogleMobileAds
+import SwiftUI
 
 // MARK: - Banner View Controller & Delegate
 /// A low-level SwiftUI wrapper around `GADBannerView`.

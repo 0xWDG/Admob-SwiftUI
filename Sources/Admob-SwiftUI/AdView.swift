@@ -45,7 +45,26 @@ public struct AdView<Content: View, BackupView: View>: View {
                 BannerView {
                     backupView
                 }
+                .padding(.bottom, 48) // Only if there is a home button
                 .environmentObject(adHelper)
             }
     }
+}
+
+@available(iOS 18, *)
+#Preview {
+    AdView {
+        TabView {
+            Tab("Test", systemImage: "house.fill") {
+                Text("TEST")
+            }
+        }
+    } backupView: {
+        Button {
+            //
+        } label: {
+            Text("Wesley's blog")
+        }
+    }
+    .environmentObject(AdHelper(adUnitID: "0"))
 }

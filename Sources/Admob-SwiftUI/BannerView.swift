@@ -7,8 +7,8 @@
 //
 //  Usage & Example: https://wesleydegroot.nl/blog/post/Admob-in-SwiftUI
 
-import SwiftUI
 import GoogleMobileAds
+import SwiftUI
 
 /// Displays an adaptive Google Mobile Ads banner after consent is available.
 ///
@@ -41,8 +41,8 @@ public struct BannerView<BackupView: View>: View {
                 InternalBannerView {
                     backupView
                 }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: adHelper.adHeight)
+                .frame(maxWidth: .infinity)
+                .frame(height: adHelper.adHeight)
             }
         }
         .environmentObject(adHelper)

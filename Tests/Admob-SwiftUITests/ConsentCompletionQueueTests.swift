@@ -3,8 +3,8 @@
 //  Admob-SwiftUITests
 //
 
-import XCTest
 @testable import Admob_SwiftUI
+import XCTest
 
 @MainActor
 final class ConsentCompletionQueueTests: XCTestCase {

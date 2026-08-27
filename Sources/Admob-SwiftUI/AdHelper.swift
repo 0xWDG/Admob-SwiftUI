@@ -7,11 +7,11 @@
 //
 //  Usage & Example: https://wesleydegroot.nl/blog/post/Admob-in-SwiftUI
 
-import SwiftUI
-import GoogleMobileAds
-import UserMessagingPlatform
-import OSLog
 import Combine
+import GoogleMobileAds
+import OSLog
+import SwiftUI
+import UserMessagingPlatform
 
 /// Stores shared banner configuration, consent state, and presentation state.
 ///

@@ -7,9 +7,9 @@
 //
 //  Usage & Example: https://wesleydegroot.nl/blog/post/Admob-in-SwiftUI
 
-import SwiftUI
 import GoogleMobileAds
 import OSLog
+import SwiftUI
 
 /// An invisible SwiftUI view that gathers Google User Messaging Platform consent.
 ///

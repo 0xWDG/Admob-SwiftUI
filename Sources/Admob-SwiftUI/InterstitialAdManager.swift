@@ -6,9 +6,9 @@
 //
 
 import Foundation
-import SwiftUI
 import GoogleMobileAds
 import OSLog
+import SwiftUI
 
 // MARK: - Interstitial Ad Manager
 /// Loads, presents, and reloads a Google Mobile Ads interstitial.
